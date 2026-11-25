@@ -598,8 +598,10 @@ fn apply(tui: &Tui, info: Info) {
     let mut changed = false;
     {
         let mut state = tui.theme.borrow_mut();
-        if new.name != old.name {
-            state.config_name(new.name.as_deref().unwrap_or("opencode"));
+        if new.name != old.name
+            && let Some(name) = &new.name
+        {
+            state.config_name(name);
             changed = true;
         }
         if new.mode != old.mode

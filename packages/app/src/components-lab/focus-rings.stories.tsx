@@ -286,6 +286,15 @@ const groups: Group[] = [
         ),
       },
       {
+        name: "New session location back",
+        source: "app/src/new-session/location/dialog.css",
+        render: () => (
+          <button type="button" class="new-session-location-back">
+            Back
+          </button>
+        ),
+      },
+      {
         name: "Project settings server link",
         source: "app/src/settings/workspaces/project.css",
         render: () => (

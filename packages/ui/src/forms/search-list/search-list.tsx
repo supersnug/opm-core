@@ -44,8 +44,7 @@ export type SearchListField = {
 
 export type SearchListHandle<T> = {
   active: () => T | undefined
-  /** `pointer` marks a highlight the pointer took through a row handler of the page's own, as the row's own does. */
-  setActive: (key: string | undefined, input?: "pointer") => void
+  setActive: (key: string | undefined) => void
 }
 
 const QueryContext = createContext<() => string>(() => "")
@@ -246,8 +245,8 @@ export function SearchList<T>(props: {
     ),
   )
 
-  const choose = (key: string | undefined, input?: "pointer") => {
-    pointed = input === "pointer" ? key : undefined
+  const choose = (key: string | undefined) => {
+    pointed = undefined
     typeahead.setActive(key)
   }
 

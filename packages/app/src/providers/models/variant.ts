@@ -10,7 +10,6 @@ type Agent = {
 
 // Only the presence of variants matters here.
 type Model = AgentModel & {
-  baseModelID?: string
   variants?: object
 }
 
@@ -54,8 +53,7 @@ export function getConfiguredAgentVariant(input: { agent: Agent | undefined; mod
 
   if (input.agent.model.providerID !== input.model.providerID) return undefined
 
-  if (input.agent.model.modelID !== input.model.modelID && input.agent.model.modelID !== input.model.baseModelID)
-    return undefined
+  if (input.agent.model.modelID !== input.model.modelID) return undefined
 
   return input.agent.variant
 }

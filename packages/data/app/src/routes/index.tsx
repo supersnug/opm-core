@@ -59,10 +59,9 @@ const usageColors = [
   "#00bc7d",
   "#9ae600",
   "#ffb900",
+  "#ff8904",
   "#ff6467",
-  "#fb64b6",
 ]
-const otherUsageColor = "#ff8904"
 const marketColors = ["#ed6aff", "#a684ff", "#7c86ff", "#51a2ff", "#00d3f2", "#00d5be", "#00bc7d", "#9ae600", "#ffb900"]
 
 type IsoCountryCode = readonly [string, string, string]
@@ -637,7 +636,7 @@ function TopModelsChart(props: {
                             <span data-slot="tooltip-label">
                               <i
                                 style={{
-                                  background: getTopModelColor(item.segment.model, item.index, segmentOrder()),
+                                  background: getRankColor(item.segment.model, item.index, segmentOrder(), usageColors),
                                 }}
                               />
                               <span data-slot="tooltip-name">{item.segment.model}</span>
@@ -853,14 +852,8 @@ function getTopModelsSegmentColor(
   activeModel: string | undefined,
 ) {
   if (activeModel !== undefined)
-    return activeModel === model ? getTopModelColor(model, index, order) : "var(--stats-layer-2)"
+    return activeModel === model ? getRankColor(model, index, order, usageColors) : "var(--stats-layer-2)"
   if (muted) return "var(--stats-layer-2)"
-  return getTopModelColor(model, index, order)
-}
-
-// Other keeps one color whether the chart colors the daily 9 models or the weekly 11.
-function getTopModelColor(model: string, index: number, order: Map<string, number>) {
-  if (model === "Other") return otherUsageColor
   return getRankColor(model, index, order, usageColors)
 }
 

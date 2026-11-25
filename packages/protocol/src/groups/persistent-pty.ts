@@ -31,10 +31,7 @@ export const PersistentPtyGroup = HttpApiGroup.make("server.experimental")
     HttpApiEndpoint.get("persistentPty.read", "/api/experimental/session/:sessionID/terminal/read", {
       params: { sessionID: Session.ID },
       query: {
-        lines: Schema.NumberFromString.pipe(Schema.decodeTo(PersistentPty.ReadLines), Schema.optional).annotateKey({
-          description:
-            "Number of trailing rows to read, up to 65535. Defaults to the live terminal height; larger counts include retained history.",
-        }),
+        lines: Schema.NumberFromString.pipe(Schema.decodeTo(PersistentPty.ReadLines), Schema.optional),
       },
       success: Schema.Struct({ data: Schema.NullOr(PersistentPty.ReadResult) }),
       error: [ServiceUnavailableError],
@@ -112,11 +109,7 @@ export const PersistentPtyGroup = HttpApiGroup.make("server.experimental")
   .add(
     HttpApiEndpoint.post("persistentPty.connectToken", "/api/experimental/persistent-pty/:ptyID/connect-token", {
       params: { ptyID: Pty.ID },
-      headers: Schema.Struct({
-        [PTY_CONNECT_TOKEN_HEADER]: Schema.optional(Schema.String).annotateKey({
-          description: `Must be ${PTY_CONNECT_TOKEN_HEADER_VALUE}; requests without it are refused.`,
-        }),
-      }),
+      headers: Schema.Struct({ [PTY_CONNECT_TOKEN_HEADER]: Schema.optional(Schema.String) }),
       success: Schema.Struct({ data: PtyTicket.ConnectToken }),
       error: [ForbiddenError, PtyNotFoundError, ServiceUnavailableError],
     }).annotateMerge(OpenApi.annotations({ identifier: "experimental.persistentPty.connectToken" })),
@@ -136,15 +129,9 @@ export const PersistentPtyGroup = HttpApiGroup.make("server.experimental")
           "x-websocket": true,
           parameters: [
             ...(operation.parameters ?? []),
-            { in: "query", name: "attachment_id", schema: { type: "string" } },
-            ...Object.entries({
-              cursor: "Output offset to replay from. Defaults to 0.",
-              role: "Attach as controller (the default) or observer.",
-              takeover: "Set to true to take over control of the terminal.",
-              input_protocol: "Set to 1 to send framed input messages instead of raw terminal input.",
-              [PTY_CONNECT_TICKET_QUERY]:
-                "Single-use ticket from experimental.persistentPty.connectToken, which authorizes the connection without the usual credentials.",
-            }).map(([name, description]) => ({ in: "query", name, description, schema: { type: "string" } })),
+            ...["cursor", "role", "attachment_id", "takeover", "input_protocol", PTY_CONNECT_TICKET_QUERY].map(
+              (name) => ({ in: "query", name, schema: { type: "string" } }),
+            ),
           ],
         }),
       }),

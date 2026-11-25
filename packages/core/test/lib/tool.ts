@@ -3,7 +3,6 @@ import { CodeModeCatalog } from "@opencode/core/codemode/catalog"
 import { Config } from "@opencode/core/config"
 import { Image } from "@opencode/core/image"
 import { Permission } from "@opencode/core/permission"
-import { PermissionPolicy } from "@opencode/core/permission/policy"
 import { SessionMessage } from "@opencode/core/session/message"
 import { toSessionError } from "@opencode/core/session/to-session-error"
 import type { SessionError } from "@opencode/schema/session-error"
@@ -30,9 +29,7 @@ export const toolNodeReplacements = (
 ]
 
 export const toolDefinitions = (registry: Tool.Interface, permissions?: Permission.Ruleset) =>
-  registry
-    .snapshot(permissions ? PermissionPolicy.fromRules(permissions) : undefined)
-    .pipe(Effect.map((toolSet) => toolSet.definitions))
+  registry.snapshot(permissions).pipe(Effect.map((toolSet) => toolSet.definitions))
 
 export const codeModeListings = (catalog: CodeModeCatalog.Inventory) =>
   CodeModeCatalog.summarize(catalog, { budget: Infinity }).namespaces.flatMap((namespace) => namespace.entries)

@@ -1,4 +1,3 @@
-import { Environment } from "@opencode/core/environment/index"
 import { FileSystem } from "@opencode/core/filesystem"
 import { FileWatch } from "@opencode/core/filesystem/file-watch"
 import { Location } from "@opencode/core/location"
@@ -63,12 +62,6 @@ export const FileSystemHandler = HttpApiBuilder.group(Api, "server.fs", (handler
       )
       .handle("fs.watch", (ctx) =>
         Effect.gen(function* () {
-          const environment = yield* Environment.Service
-          if (!environment.local)
-            return yield* new ServiceUnavailableError({
-              service: "filewatcher",
-              message: "File watching is not available for this location",
-            })
           const fs = yield* FileSystem.Service
           const location = yield* Location.Service
           // Same confinement as read: the file must exist inside the location.
@@ -93,8 +86,6 @@ export const FileSystemHandler = HttpApiBuilder.group(Api, "server.fs", (handler
       )
       .handle("fs.unwatch", (ctx) =>
         Effect.gen(function* () {
-          const environment = yield* Environment.Service
-          if (!environment.local) return
           const location = yield* Location.Service
           yield* fileWatch.unwatch({
             location: { directory: location.directory, workspaceID: location.workspaceID },

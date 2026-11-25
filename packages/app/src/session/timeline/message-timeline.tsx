@@ -29,7 +29,6 @@ import { containsDirectory } from "@opencode/util/path"
 import { isWorkspaceDirectory } from "@/workspaces/paths"
 import { parseCommentNote, readPromptPresentation } from "@/composer/comment-note"
 import { parseVoiceDelegation } from "./voice-delegation"
-import { inlineQuotes } from "./inline-quotes"
 import { useCommand } from "@/shell/commands/command"
 import { usePluginScoped } from "@/runtime/plugin/commands"
 import {
@@ -320,7 +319,6 @@ function MessageTimelineView(
 
   const rowInput = {
     foldUserMessages: settings.general.foldUserMessages,
-    inlineQuotes: () => inlineQuotes,
     sessionID: () => sessionID()!,
     status: sessionStatus,
     projection,
@@ -345,16 +343,14 @@ function MessageTimelineView(
     revealPart: virtualized.revealPart,
   }
 
-  const nextRenderer = props.next ? createNextTimelineRowRenderer(rowInput) : undefined
-
-  const rowRenderer =
-    nextRenderer ??
-    createSessionTimelineRowRenderer({
-      ...rowInput,
-      reasoningMode: props.data.reasoningMode,
-      shellToolDefaultOpen: props.data.shellToolPartsExpanded,
-      editToolDefaultOpen: props.data.editToolPartsExpanded,
-    })
+  const rowRenderer = props.next
+    ? createNextTimelineRowRenderer(rowInput)
+    : createSessionTimelineRowRenderer({
+        ...rowInput,
+        reasoningMode: props.data.reasoningMode,
+        shellToolDefaultOpen: props.data.shellToolPartsExpanded,
+        editToolDefaultOpen: props.data.editToolPartsExpanded,
+      })
 
   const blockingPartID = createMemo(() => {
     const blocking = new Set(props.background.blocking().map((task) => task.partID))
@@ -579,13 +575,7 @@ function MessageTimelineView(
             // row: Working hides and returns several times in one step, and each change would move that input 36px.
             const shown = createMemo((was) => was || working() || backgroundHintPresence.present(), false)
 
-            // In the New timeline the row above holds a row's gap. A waiting message brings a turn gap for that;
-            // a queued compaction has none, so this row holds its gap, whether or not live status shows.
-            return (
-              <div data-timeline={nextRenderer && "next"} data-timeline-gap={nextRenderer?.gap(row())}>
-                <Show when={shown()}>{activity(() => true, true)}</Show>
-              </div>
-            )
+            return <Show when={shown()}>{activity(() => true, true)}</Show>
           }}
         </Show>
       )}

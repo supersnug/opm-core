@@ -96,8 +96,6 @@ export default function SessionMobileFiles(props: { session: MountedSession; scr
             transition: () => false,
             resize: () => undefined,
             toggle: () => shared.filter.setBrowsing(props.session.key, !browsing()),
-            side: () => "start",
-            move: () => undefined,
           }}
           onSelect={open}
           onSelectPermanent={open}

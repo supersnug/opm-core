@@ -197,19 +197,6 @@ const notify = Effect.fnUntraced(function* (
   if (info.notificationID) yield* jobs.completeBackground(info.notificationID)
 })
 
-// Waits for the command to end and reads what it printed.
-const finished = Effect.fnUntraced(function* (shell: Shell.Interface, info: ShellSchema.Info) {
-  const result = yield* shell.result(info)
-  if (!result.capture) return yield* new Shell.NotFoundError({ id: info.id })
-  const completed = result.info.time.completed ?? (yield* Clock.currentTimeMillis)
-  return {
-    ...ShellResult.output(result),
-    status: "completed" as const,
-    wallTimeSeconds: wallTimeSeconds(result.info.time, completed),
-    ...(result.capture.truncated ? { outputPath: result.info.file } : {}),
-  }
-})
-
 // The job that waits on a command for its call (or its session, once backgrounded).
 const startJob = Effect.fnUntraced(function* (
   jobs: Job.Interface,
@@ -238,7 +225,17 @@ const startJob = Effect.fnUntraced(function* (
     },
     ...(input.notificationID ? { notificationID: input.notificationID } : {}),
     background: input.background,
-    run: finished(shell, info).pipe(
+    run: Effect.gen(function* () {
+      const result = yield* shell.result(info)
+      if (!result.capture) return yield* new Shell.NotFoundError({ id: info.id })
+      const completed = result.info.time.completed ?? (yield* Clock.currentTimeMillis)
+      return {
+        ...ShellResult.output(result),
+        status: "completed" as const,
+        wallTimeSeconds: wallTimeSeconds(result.info.time, completed),
+        ...(result.capture.truncated ? { outputPath: result.info.file } : {}),
+      }
+    }).pipe(
       Effect.tap((output) => Deferred.succeed(settled, output)),
       Effect.map((output) => resultMessages(output, input.timeout?.()).join("\n\n")),
       // Interrupting the job (its registry closing) stops the command too, unless the server is handing its daemon
@@ -310,7 +307,7 @@ export const Plugin = {
     const agents = yield* Agent.Service
     const jobs = yield* Job.Service
     const access = yield* FileAccess.Service
-    const currentWorkingDirectory = yield* Environment.workingDirectoryResolver
+    const workingDirectory = yield* Environment.workingDirectory
     const shell = yield* Shell.Service
     const shellSelect = yield* ShellSelect.Service
     const compatibleShell = shellSelect.resolve({ priority: "compat" })
@@ -325,7 +322,6 @@ export const Plugin = {
       context: Tool.Context,
       requested: { readonly cwd: string; readonly target: FileAccess.Target },
     ) {
-      const workingDirectory = yield* currentWorkingDirectory
       // Resolved before the hooks ran; only a hook that moved the working directory needs it resolved again. It always
       // resolves from a base, so a moved path is a plain path on the machine the command was asked for.
       const target =
@@ -345,10 +341,10 @@ export const Plugin = {
         command: invocation.command,
         program: invocation.shell,
         target,
-        policy: Effect.gen(function* () {
+        rules: Effect.gen(function* () {
           const session = yield* sessions.get(context.sessionID)
           const agent = yield* agents.resolve(context.agent)
-          return Permission.Policy.fromRules(agent?.permissions ?? [], session.permissions ?? [])
+          return Permission.merge(agent?.permissions ?? [], session.permissions ?? [])
         }),
       })
       yield* Effect.forEach(
@@ -456,23 +452,11 @@ export const Plugin = {
                     Effect.fail(new ToolFailure({ message: "Command interrupted by the user before it started." })),
                   ),
                 )
-                // An automation's code has nobody to hear how a backgrounded command ends. There a timeout stops the
-                // command and fails the call, and the command gets no job the session could move to the background or
-                // be told about.
-                const timeoutBackgrounds = !background && context.automation === undefined
                 return yield* Effect.gen(function* () {
-                  const workingDirectory = yield* currentWorkingDirectory
                   // The same default `Shell.create` gives the hooks, so `prepare` can tell whether one moved it.
                   const cwd = input.workdir ?? workingDirectory.absolute
                   const target = yield* restore(
-                    Effect.raceFirst(
-                      access.resolve({
-                        path: cwd,
-                        base: input.workdir === undefined ? workingDirectory : undefined,
-                        kind: "directory",
-                      }),
-                      stoppedBeforeStart,
-                    ),
+                    Effect.raceFirst(access.resolve({ path: cwd, kind: "directory" }), stoppedBeforeStart),
                   )
                   const info = yield* shell.create(
                     {
@@ -484,7 +468,7 @@ export const Plugin = {
                       timeout,
                       shell: yield* compatibleShell,
                       metadata: { sessionID: context.sessionID },
-                      waited: timeoutBackgrounds,
+                      waited: !background,
                       toolCall: {
                         sessionID: context.sessionID,
                         assistantMessageID: context.messageID,
@@ -502,19 +486,10 @@ export const Plugin = {
                           Effect.raceFirst(prepare(invocation, context, { cwd, target }), stoppedBeforeStart),
                         )
                         // A foreground timeout moves the command to the background instead of stopping it.
-                        if (timeoutBackgrounds) invocation.timeout = 0
+                        if (!background) invocation.timeout = 0
                       }),
                   )
                   yield* context.progress({ shellID: info.id })
-
-                  if (context.automation) {
-                    const output = yield* restore(finished(shell, info)).pipe(
-                      Effect.onInterrupt(() => shell.stop(info.id, "killed").pipe(Effect.ignore)),
-                    )
-                    if (output.timeout)
-                      return yield* new ToolFailure({ message: resultMessages(output, finalTimeout).join("\n\n") })
-                    return output
-                  }
 
                   const { job, settled } = yield* startJob(jobs, shell, {
                     sessionID: context.sessionID,

@@ -42,11 +42,7 @@ export const makePermissionGroup = <
     )
     .add(
       HttpApiEndpoint.get("permission.saved.list", "/api/permission/saved", {
-        query: Schema.Struct({
-          projectID: Project.ID.pipe(Schema.optional).annotateKey({
-            description: "Project whose saved permissions to list. Defaults to the project of the requested location.",
-          }),
-        }),
+        query: Schema.Struct({ projectID: Project.ID.pipe(Schema.optional) }),
         success: Schema.Struct({ data: Schema.Array(PermissionSaved.Info) }),
       })
         .middleware(locationMiddleware)

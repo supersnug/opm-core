@@ -75,8 +75,7 @@ export type LocationDialogTransition = {
   readonly stop: boolean
 }
 
-/** With `only`, the dialog lists the drilled project's worktrees and has no projects step to go back to. */
-export function createLocationDialogState(drilled?: PromptProject, only = false): LocationDialogState {
+export function createLocationDialogState(drilled?: PromptProject): LocationDialogState {
   if (!drilled) return { type: "projects", query: "", history: [] }
 
   return {
@@ -84,7 +83,7 @@ export function createLocationDialogState(drilled?: PromptProject, only = false)
     project: drilled,
     direct: true,
     query: "",
-    history: only ? [] : [{ type: "projects", query: "", active: projectEntryID(drilled) }],
+    history: [{ type: "projects", query: "", active: projectEntryID(drilled) }],
   }
 }
 

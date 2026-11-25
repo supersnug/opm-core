@@ -2,7 +2,8 @@ export * as ShellPermissions from "./permissions.js"
 
 import { Effect, Result, Schema } from "effect"
 import { FileAccess } from "../file-access.js"
-import { PermissionPolicy } from "../permission/policy.js"
+import type { Permission } from "../permission.js"
+import { Wildcard } from "../util/wildcard.js"
 import { ShellParse } from "./parse.js"
 
 export class UnverifiableError extends Schema.TaggedError<UnverifiableError>()("ShellPermissions.UnverifiableError", {
@@ -20,8 +21,8 @@ export const requests = Effect.fnUntraced(function* <E>(
     readonly program: string
     readonly target: FileAccess.Target
     readonly once?: boolean
-    /** The agent's and session's policy, read only for a command the scanner can't analyze. */
-    readonly policy: Effect.Effect<PermissionPolicy.Policy, E>
+    /** The agent's and session's rules, read only for a command the scanner can't analyze. */
+    readonly rules: Effect.Effect<Permission.Ruleset, E>
   },
 ) {
   const scanned = yield* Effect.result(
@@ -31,7 +32,7 @@ export const requests = Effect.fnUntraced(function* <E>(
   )
   if (Result.isFailure(scanned)) {
     // A deny pattern can't be matched against subcommands the scanner couldn't find.
-    if (PermissionPolicy.hasDeny(yield* input.policy, "shell"))
+    if ((yield* input.rules).some((rule) => rule.effect === "deny" && Wildcard.match("shell", rule.action)))
       return yield* new UnverifiableError({ reason: scanned.failure.reason })
     // An unanalyzed command may reach any directory, so only rules allowing every directory settle it, and approval
     // is never saved as a pattern.

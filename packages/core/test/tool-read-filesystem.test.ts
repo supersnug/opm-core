@@ -114,7 +114,7 @@ describe("ReadTool text serialization", () => {
     name: string
     content: string
     page: ReadToolFileSystem.PageInput
-    output: ReadToolFileSystem.TextPage
+    output: ReadToolFileSystem.TextContent
     model: string
   }[] = [
     {

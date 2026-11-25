@@ -354,20 +354,16 @@ export function ConfigProvider(props: {
   const [config, setConfig] = createStore(props.config)
   const host = props.service
   const apply = (info: Info) => setConfig(reconcile(resolve(info, props.options ?? { terminalSuspend: true })))
-  let pending: Promise<unknown> = Promise.resolve()
-  const update: Interface["update"] = async (update) => {
+  const update = async (update: (draft: any) => void) => {
     if (!host) throw new Error("Config updates are not available")
-    const save = pending.then(async () => {
-      const info = await host.update(update)
-      apply(info)
-      return info
-    })
-    pending = save.catch(() => {})
-    return save
+    const info = await host.update(update)
+    apply(info)
+    return info
   }
+  let reload = Promise.resolve()
   const watcher = host?.path
     ? safeWatch(path.dirname(host.path), () => {
-        pending = pending
+        reload = reload
           .then(() => host.get())
           .then(apply)
           .catch(() => {})

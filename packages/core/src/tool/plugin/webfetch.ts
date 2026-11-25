@@ -150,7 +150,7 @@ export const Plugin = {
               yield* permission.assert({
                 action: name,
                 resources: [url],
-                save: Permission.site(url),
+                save: ["*"],
                 metadata: input,
                 ...Permission.invocation(context),
               })

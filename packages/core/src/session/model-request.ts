@@ -345,7 +345,11 @@ export const layer = Layer.effect(
             model.model.provider,
           ),
         ),
-        tools: Array.from(hooked, ([name, t]) => ({ ...t, name })),
+        tools: Array.from(hooked, ([name, t]) => ({
+          ...t,
+          name,
+          freeform: t.freeform && model.capabilities.freeform?.includes(t.freeform.type) ? t.freeform : undefined,
+        })),
         toolChoice: input.toolChoice,
         ...generation,
         providerOptions: Object.keys(providerOptions).length === 0 ? undefined : providerOptions,

@@ -15,11 +15,7 @@ const BooleanFromString = Schema.Literals(["true", "false"]).pipe(
 export const ProjectGroup = HttpApiGroup.make("server.project")
   .add(
     HttpApiEndpoint.get("project.list", root, {
-      query: Schema.Struct({
-        archived: BooleanFromString.pipe(Schema.optional).annotateKey({
-          description: "Set to true to include archived projects.",
-        }),
-      }),
+      query: Schema.Struct({ archived: BooleanFromString.pipe(Schema.optional) }),
       success: Schema.Array(Project.Info),
     }).annotateMerge(
       OpenApi.annotations({

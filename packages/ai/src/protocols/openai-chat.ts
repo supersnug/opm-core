@@ -406,12 +406,12 @@ const lowerTool = (
   custom: OpenAIFreeform.Custom | undefined,
 ): OpenAIChatTool => {
   if (custom) {
-    const grammar = OpenAIFreeform.grammar(custom)
+    const grammar = OpenAIFreeform.grammar(custom.format)
     return {
       type: "custom",
       custom: {
         name: tool.name,
-        description: OpenAIFreeform.description(tool, custom),
+        description: tool.description,
         format: grammar ? { type: "grammar", grammar } : { type: "text" },
       },
       cache_control: options.cacheControl?.(tool.cache),
@@ -450,10 +450,7 @@ const lowerToolCall = (part: ToolCallPart, options: MessageLoweringOptions): Ope
     return {
       id: options.toolCallID?.(part.id) ?? part.id,
       type: "custom",
-      custom: {
-        name: part.name,
-        input: OpenAIFreeform.toRaw(custom, part.input, part.providerMetadata?.[options.providerMetadataKey]?.header),
-      },
+      custom: { name: part.name, input: OpenAIFreeform.toRaw(custom, part.input) },
     }
   return {
     id: options.toolCallID?.(part.id) ?? part.id,
@@ -1291,7 +1288,7 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
       !incompleteTools &&
       state.finishReason === undefined &&
       Object.keys(tools).length > 0
-        ? yield* finishTools(state, tools, customCalls)
+        ? yield* finishTools(tools, customCalls)
         : undefined
 
     return [
@@ -1320,12 +1317,8 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
   })
 
 // Custom calls close their JSON fragment before every pending call finishes.
-const finishTools = Effect.fnUntraced(function* (
-  state: ParserState,
-  tools: ParserState["tools"],
-  customCalls: ReadonlySet<number>,
-) {
-  const closed = OpenAIFreeform.close(tools, customCalls, state.custom, state.providerMetadataKey)
+const finishTools = Effect.fnUntraced(function* (tools: ParserState["tools"], customCalls: ReadonlySet<number>) {
+  const closed = OpenAIFreeform.close(tools, customCalls)
   const finished = yield* ToolStream.finishAll(ADAPTER, closed.tools)
   return { tools: finished.tools, events: [...closed.events, ...finished.events] }
 })
@@ -1342,7 +1335,7 @@ export const finishEvents = Effect.fnUntraced(function* (state: ParserState) {
   const events: LLMEvent[] = []
   const toolCallEvents =
     state.finishReason === undefined && Object.keys(state.tools).length > 0
-      ? (yield* finishTools(state, state.tools, state.customCalls)).events
+      ? (yield* finishTools(state.tools, state.customCalls)).events
       : state.toolCallEvents
   const hasToolCalls = toolCallEvents.length > 0
   const reason = state.finishReason

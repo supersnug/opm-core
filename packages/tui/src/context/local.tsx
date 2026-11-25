@@ -263,21 +263,10 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       }
 
       function preferredSelection(model: ModelPreferenceModel): ModelSelection {
-        // A model runs at the speed last used with it.
-        const speed = preferences.speed[modelPreferenceKey(model)]
-        const remembered = speed && speeds(model).find((item) => item.experimental?.speed?.id === speed)
-        const target = remembered ? { providerID: model.providerID, modelID: remembered.id } : model
         const configured = agent.current()?.model
         const fallback = configuredModel()
-        // A model's speeds share its variant. Preferences saved before then may name one of its speeds instead.
-        const standard = standardModel(model)
-        const preferred = [
-          standard,
-          target,
-          ...speeds(standard).map((item) => ({ providerID: item.providerID, modelID: item.id })),
-        ]
-          .map((item) => preferences.variant[modelPreferenceKey(item)])
-          .find((value) => value !== undefined)
+        // A model's speeds share its variant.
+        const preferred = preferences.variant[modelPreferenceKey(standardModel(model))]
         const variant = normalizeModelVariant(
           preferred ??
             (configured?.providerID === model.providerID && configured.id === model.modelID
@@ -287,10 +276,13 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
               ? fallback.variant
               : undefined),
         )
-        const info = findModel(target)
+        const info = findModel(model)
+        // A model runs at the speed last used with it.
+        const speed = preferences.speed[modelPreferenceKey(model)]
+        const remembered = speed && speeds(model).find((item) => item.experimental?.speed?.id === speed)
         return {
-          providerID: target.providerID,
-          modelID: target.modelID,
+          providerID: model.providerID,
+          modelID: remembered ? remembered.id : model.modelID,
           variant: info?.variants.some((item) => item.id === variant) ? variant : undefined,
         }
       }

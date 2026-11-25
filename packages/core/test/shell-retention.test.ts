@@ -144,7 +144,7 @@ it.live("does not inherit host process.env when creating a shell in a workspace-
                 return Environment.Service.of({
                   ...host,
                   id: Environment.ID.make("wrk_workspace"),
-                  local: false,
+                  hostsServer: false,
                 })
               }),
             ).pipe(Layer.provide(hostEnvironmentLayer)),

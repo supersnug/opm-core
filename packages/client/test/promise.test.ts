@@ -59,7 +59,6 @@ test("exposes every standard HTTP API group", () => {
     "integration",
     "mcp",
     "file",
-    "skill",
     "persistentPty",
     "media",
     "blob",

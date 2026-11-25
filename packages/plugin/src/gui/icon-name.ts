@@ -129,7 +129,6 @@ export type AppIconName =
   | "outline-xmark"
   | "pencil-line"
   | "photo"
-  | "pin"
   | "plus"
   | "plus-small"
   | "post-skill"

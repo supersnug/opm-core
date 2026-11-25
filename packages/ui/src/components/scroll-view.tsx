@@ -253,44 +253,16 @@ export function ScrollView(props: ScrollViewProps) {
     }
   }
 
-  const thumbMetrics = {
-    hasVertical: false,
-    verticalSize: 0,
-    verticalStart: 0,
-    verticalOverflow: false,
-    hasHorizontal: false,
-    horizontalSize: 0,
-    horizontalStart: 0,
-    horizontalOverflow: false,
-  }
+  onCleanup(() => dispatch(SCROLL_THUMB_DISPOSED))
 
-  let thumbFrame: number | undefined
-  let pendingThumb = false
-  let pendingScroll = false
-
-  const cancelThumbFrame = () => {
-    if (thumbFrame !== undefined) cancelAnimationFrame(thumbFrame)
-    thumbFrame = undefined
-    pendingThumb = false
-    pendingScroll = false
-  }
-
-  onCleanup(() => {
-    cancelThumbFrame()
-    dispatch(SCROLL_THUMB_DISPOSED)
-  })
-
-  // Pure DOM read so scroll listeners can read geometry before any thumb style write dirties layout.
-  const readThumb = () => {
-    if (!viewportRef) return false
+  const updateThumb = () => {
+    if (!viewportRef) return
     const trackPadding = 8
     const minThumbSize = 32
-    thumbMetrics.hasVertical = vertical()
-    thumbMetrics.verticalOverflow = false
-    thumbMetrics.hasHorizontal = horizontal()
-    thumbMetrics.horizontalOverflow = false
+    let verticalOverflow = false
+    let horizontalOverflow = false
 
-    if (thumbMetrics.hasVertical) {
+    if (vertical()) {
       const adjustment = local.verticalScrollAdjustment ?? 0
       const scrollHeight = viewportRef.scrollHeight + adjustment
       const trackSize = Math.max(0, (thumbMount()?.clientHeight || viewportRef.clientHeight) - trackPadding * 2)
@@ -301,13 +273,15 @@ export function ScrollView(props: ScrollViewProps) {
 
       const maxScroll = scrollHeight - viewportRef.clientHeight
       const maxStart = trackSize - size
-      thumbMetrics.verticalOverflow = maxScroll > 0
-      thumbMetrics.verticalSize = size
-      thumbMetrics.verticalStart =
-        trackPadding + (maxScroll > 0 ? ((viewportRef.scrollTop + adjustment) / maxScroll) * maxStart : 0)
+      verticalOverflow = maxScroll > 0
+      setState("verticalThumbSize", size)
+      setState(
+        "verticalThumbStart",
+        trackPadding + (maxScroll > 0 ? ((viewportRef.scrollTop + adjustment) / maxScroll) * maxStart : 0),
+      )
     }
 
-    if (thumbMetrics.hasHorizontal) {
+    if (horizontal()) {
       const trackSize = Math.max(0, (thumbMount()?.clientWidth || viewportRef.clientWidth) - trackPadding * 2)
 
       const size = trackSize
@@ -319,52 +293,12 @@ export function ScrollView(props: ScrollViewProps) {
       const rtl = getComputedStyle(viewportRef).direction === "rtl"
       const offset = Math.max(0, Math.min(rtl ? -viewportRef.scrollLeft : viewportRef.scrollLeft, maxScroll))
       const start = maxScroll > 0 ? (offset / maxScroll) * maxStart : 0
-      thumbMetrics.horizontalOverflow = maxScroll > 0
-      thumbMetrics.horizontalSize = size
-      thumbMetrics.horizontalStart = trackPadding + (rtl ? maxStart - start : start)
+      horizontalOverflow = maxScroll > 0
+      setState("horizontalThumbSize", size)
+      setState("horizontalThumbStart", trackPadding + (rtl ? maxStart - start : start))
     }
 
-    return true
-  }
-
-  const applyThumb = () => {
-    if (thumbMetrics.hasVertical) {
-      setState("verticalThumbSize", thumbMetrics.verticalSize)
-      setState("verticalThumbStart", thumbMetrics.verticalStart)
-    }
-
-    if (thumbMetrics.hasHorizontal) {
-      setState("horizontalThumbSize", thumbMetrics.horizontalSize)
-      setState("horizontalThumbStart", thumbMetrics.horizontalStart)
-    }
-
-    dispatch(overflowChanged(thumbMetrics.verticalOverflow, thumbMetrics.horizontalOverflow))
-  }
-
-  const updateThumb = () => {
-    if (!readThumb()) return
-    applyThumb()
-  }
-
-  const flushThumbFrame = () => {
-    thumbFrame = undefined
-    const apply = pendingThumb
-    const scrolled = pendingScroll
-    pendingThumb = false
-    pendingScroll = false
-
-    // Overflow updates before SCROLLED so a first scroll discovers overflow before showing the thumb.
-    if (apply) applyThumb()
-
-    if (scrolled) dispatch(SCROLLED)
-  }
-
-  const scheduleThumbScroll = (measured: boolean) => {
-    if (measured) pendingThumb = true
-    pendingScroll = true
-
-    if (thumbFrame !== undefined) return
-    thumbFrame = requestAnimationFrame(flushThumbFrame)
+    dispatch(overflowChanged(verticalOverflow, horizontalOverflow))
   }
 
   onMount(() => {
@@ -416,17 +350,10 @@ export function ScrollView(props: ScrollViewProps) {
   })
 
   const prepareScroll = () => {
-    const hadPending = pendingThumb
-    cancelThumbFrame()
-
     if (local.onBeforeScroll) {
       local.onBeforeScroll()
       updateThumb()
-
-      return
     }
-
-    if (hadPending) updateThumb()
   }
 
   const onThumbPointerDown = (axis: ScrollAxis, e: PointerEvent & { currentTarget: HTMLDivElement }) => {
@@ -597,15 +524,15 @@ export function ScrollView(props: ScrollViewProps) {
         class="scroll-view__viewport"
         data-scrollable
         onScroll={(e) => {
-          const measured = readThumb()
+          updateThumb()
+          dispatch(SCROLLED)
           forward(events.onScroll, e)
-          scheduleThumbScroll(measured)
         }}
         // Passive so the compositor never waits on the main thread to scroll; onWheel cannot cancel.
         on:wheel={{
           passive: true,
           handleEvent: (e) => {
-            scheduleThumbScroll(false)
+            dispatch(SCROLLED)
             // SAFETY: this listener is on the viewport div, so `currentTarget` is that div and `target` an element in it.
             forward(events.onWheel, e as WheelEvent & { currentTarget: HTMLDivElement; target: Element })
           },

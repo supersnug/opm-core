@@ -37,7 +37,6 @@ export function SessionUserMessage(props: {
   fold?: boolean
   expanded?: boolean
   onExpandedChange?: (expanded: boolean) => void
-  inlineQuotes?: boolean
 }) {
   return (
     <CurrentUserMessageDisplay
@@ -58,7 +57,6 @@ export function SessionUserMessage(props: {
       fold={props.fold}
       expanded={props.expanded}
       onExpandedChange={props.onExpandedChange}
-      inlineQuotes={props.inlineQuotes}
     />
   )
 }

@@ -118,7 +118,6 @@ export const effectOmitEndpoints = new Set([
   "media.get",
   "blob.get",
   "artifacts.view",
-  "skill.file",
   "pty.connect",
   "persistentPty.connect",
   "mcp.client",

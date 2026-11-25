@@ -4,7 +4,6 @@ import { Agent } from "@opencode/core/agent"
 import { Automation } from "@opencode/core/automation"
 import { AppNodeBuilder } from "@opencode/core/effect/app-node-builder"
 import { Config } from "@opencode/core/config"
-import { PermissionPolicy } from "@opencode/core/permission/policy"
 import { Project } from "@opencode/core/project"
 import { AbsolutePath } from "@opencode/core/schema"
 import { Session } from "@opencode/core/session"
@@ -73,13 +72,7 @@ const memory = () => {
         return info
       }),
     list: (input) => Effect.sync(() => [...rows.values()].filter((info) => info.projectID === input?.projectID)),
-    get: (id, options) =>
-      find(id).pipe(
-        Effect.filterOrFail(
-          (info) => options?.projectID === undefined || info.projectID === options.projectID,
-          () => new Automation.NotFoundError({ automationID: id }),
-        ),
-      ),
+    get: find,
     pause: (id) => update(id, "paused"),
     resume: (id) => update(id, "active"),
     remove: (id) => find(id).pipe(Effect.map(() => void rows.delete(id))),
@@ -142,7 +135,7 @@ const run = (registry: Tool.Interface, name: string, input: unknown, session = s
 
 /** Calls a tool directly, as a model does when Code Mode is denied, and returns the text it reads. */
 const direct = (registry: Tool.Interface, name: string, input: unknown) =>
-  registry.snapshot(PermissionPolicy.fromRules([{ action: "execute", resource: "*", effect: "deny" }])).pipe(
+  registry.snapshot([{ action: "execute", resource: "*", effect: "deny" }]).pipe(
     Effect.flatMap((tools) =>
       tools.execute({
         sessionID,

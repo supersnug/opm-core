@@ -10,7 +10,6 @@ import { DatabaseBatch } from "../database/batch.js"
 import { Bus } from "../bus.js"
 import { makeGlobalNode } from "@opencode/util/effect/app-node"
 import { Model } from "@opencode/schema/model"
-import { SessionCwdStore } from "./cwd-store.js"
 import { SessionEvent } from "./event.js"
 import { SessionMessage } from "./message.js"
 import { SessionMessageUpdater } from "./message-updater.js"
@@ -885,7 +884,7 @@ const layer = Layer.effectDiscard(
             title: event.data.title,
             agent: event.data.agent,
             model: event.data.model,
-            metadata: SessionCwdStore.writeStored(event.data.metadata, undefined),
+            metadata: event.data.metadata,
             permission: event.data.permissions,
             version: event.data.version,
             time_created: event.created,
@@ -987,13 +986,7 @@ const layer = Layer.effectDiscard(
       setSession(db, event.data.sessionID, { title: event.data.title, time_updated: event.created }),
     )
     yield* bus.project(SessionEvent.MetadataUpdated, (event) =>
-      Effect.gen(function* () {
-        const existing = yield* SessionCwdStore.read(db, event.data.sessionID)
-        yield* setSession(db, event.data.sessionID, {
-          metadata: SessionCwdStore.writeStored(event.data.metadata, existing),
-          time_updated: event.created,
-        })
-      }),
+      setSession(db, event.data.sessionID, { metadata: event.data.metadata, time_updated: event.created }),
     )
     yield* bus.project(SessionEvent.Permissions, (event) =>
       setSession(db, event.data.sessionID, { permission: event.data.permissions, time_updated: event.created }),

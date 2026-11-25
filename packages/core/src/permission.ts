@@ -10,11 +10,10 @@ import { Agent } from "./agent.js"
 import { SessionErrors } from "./session/error.js"
 import { SessionSchema } from "./session/schema.js"
 import { SessionStore } from "./session/store.js"
-import { PermissionPolicy } from "./permission/policy.js"
+import { Wildcard } from "./util/wildcard.js"
 import { PermissionSaved } from "./permission/saved.js"
 import { PluginHooks } from "./plugin/hooks.js"
 
-export * as Policy from "./permission/policy.js"
 const PermissionEffect = Permission.Effect
 export { PermissionEffect as Effect }
 export { Rule, Ruleset } from "@opencode/schema/permission"
@@ -92,28 +91,27 @@ export class NotFoundError extends Schema.TaggedError<NotFoundError>()("Permissi
 
 export type Error = BlockedError | CorrectedError
 
-export { ignoresCase, pathActions } from "./permission/policy.js"
+/** Actions whose resources are file paths. */
+export const pathActions = ["external_directory", "read", "edit"] as const
 
-/**
- * What "Allow always" saves for a web URL: its site, so approving one page doesn't allow every URL. Rules match the URL
- * as written, so the site is kept as written, with and without a path. The site ends where URL parsing ends it,
- * including at `\`, which parsers treat as `/`. A URL with credentials or whitespace in its site
- * (`https://opencode.ai@evil.com` goes to evil.com) saves only itself. Rules treat `*` and `?` as wildcards, so a site
- * with either, such as `https://*`, gets no pattern, and neither does an unusual URL with either: no "Allow always".
- */
-export function site(url: string) {
-  const origin = /^https?:\/\/[^/\\?#@\s*]+(?=[/\\?#]|$)/i.exec(url)?.[0]
-  if (origin) return [origin, `${origin}/*`]
-  return /[*?]/.test(url) ? [] : [url]
+/** macOS volumes ignore case by default, so `.OPENCODE/x` opens `.opencode/x`; rules for file paths must match it too. */
+export function ignoresCase(action: string) {
+  return process.platform === "darwin" && pathActions.some((item) => item === action)
 }
 
 export function evaluate(action: string, resource: string, ...rulesets: Permission.Ruleset[]): Permission.Rule {
-  return PermissionPolicy.evaluate(PermissionPolicy.fromRules(...rulesets), action, resource)
-}
-
-/** True when every resource for `action` is denied; trailing narrow denies preserve a blanket deny while any `allow` or `ask` keeps the action reachable. */
-export function isActionDenied(action: string, ...rulesets: Permission.Ruleset[]): boolean {
-  return PermissionPolicy.isActionDenied(PermissionPolicy.fromRules(...rulesets), action)
+  const ignoreCase = ignoresCase(action)
+  return (
+    rulesets
+      .flat()
+      .findLast(
+        (rule) => Wildcard.match(action, rule.action) && Wildcard.match(resource, rule.resource, ignoreCase),
+      ) ?? {
+      action,
+      resource: "*",
+      effect: "ask",
+    }
+  )
 }
 
 export function merge(...rulesets: Permission.Ruleset[]): Permission.Ruleset {
@@ -175,15 +173,13 @@ const layer = Layer.effect(
     }).pipe(Effect.uninterruptible)
     yield* Effect.addFinalizer(() => close)
 
-    const savedPolicy = Effect.fnUntraced(function* () {
-      return PermissionPolicy.fromRules(
-        (yield* saved.list({ projectID: location.project.id })).map(
-          (item): Permission.Rule => ({
-            action: item.action,
-            resource: item.resource,
-            effect: "allow",
-          }),
-        ),
+    const savedRules = Effect.fnUntraced(function* () {
+      return (yield* saved.list({ projectID: location.project.id })).map(
+        (item): Permission.Rule => ({
+          action: item.action,
+          resource: item.resource,
+          effect: "allow",
+        }),
       )
     })
 
@@ -191,8 +187,16 @@ const layer = Layer.effect(
       const session = yield* sessions.get(sessionID)
       if (!session) return yield* new SessionErrors.NotFoundError({ sessionID })
       const agent = yield* agents.resolve(agentID ?? session.agent)
-      return PermissionPolicy.fromRules(agent?.permissions ?? missingAgentPermissions, session.permissions ?? [])
+      return merge(agent?.permissions ?? missingAgentPermissions, session.permissions ?? [])
     })
+
+    function denied(input: Pick<Request, "action" | "resources">, rules: Permission.Ruleset) {
+      return input.resources.some((resource) => evaluate(input.action, resource, rules).effect === "deny")
+    }
+
+    function relevant(input: AssertInput, rules: Permission.Ruleset) {
+      return rules.filter((rule) => Wildcard.match(input.action, rule.action))
+    }
 
     const nested: Interface["nested"] = (call, parent) =>
       Effect.acquireRelease(
@@ -206,11 +210,11 @@ const layer = Layer.effect(
     }
 
     const evaluateInput = Effect.fnUntraced(function* (input: AssertInput) {
-      const base = yield* configured(input.sessionID, input.agent)
-      if (PermissionPolicy.evaluateAll(base, input.action, input.resources) === "deny")
-        return { effect: "deny" as const, policy: base }
-      const effective = PermissionPolicy.fallback(base, yield* savedPolicy())
-      const effect = PermissionPolicy.evaluateAll(effective, input.action, input.resources)
+      const rules = yield* configured(input.sessionID, input.agent)
+      if (denied(input, rules)) return { effect: "deny" as const, rules }
+      const all = [...rules, ...(yield* savedRules())]
+      const effects = input.resources.map((resource) => evaluate(input.action, resource, all).effect)
+      const effect: Permission.Effect = effects.includes("ask") ? "ask" : "allow"
       const event = yield* hooks.trigger("permission", "evaluate", {
         sessionID: input.sessionID,
         agent: input.agent,
@@ -222,20 +226,14 @@ const layer = Layer.effect(
       })
       const unattended = yield* Unattended
       if (event.effect !== "ask" || unattended === undefined)
-        return { effect: event.effect, message: event.message, policy: effective }
-      // When an evaluate hook downgraded `allow` to `ask`, unattended rules must explicitly allow the request
-      // rather than inheriting the pre-hook `allow` from `effective`.
-      const settled =
-        effect === "ask" ? PermissionPolicy.override(effective, unattended) : PermissionPolicy.fromRules(unattended)
-      if (
-        (effect === "ask" || input.resources.length > 0) &&
-        PermissionPolicy.evaluateAll(settled, input.action, input.resources) === "allow"
-      )
-        return { effect: "allow" as const, policy: effective }
+        return { effect: event.effect, message: event.message, rules: all }
+      const settled = [...all, ...unattended]
+      const allowed = input.resources.every((resource) => evaluate(input.action, resource, settled).effect === "allow")
+      if (allowed) return { effect: "allow" as const, rules: all }
       return {
         effect: "deny" as const,
         message: `Permission ${input.action} needs approval, and nobody is present to give it`,
-        policy: effective,
+        rules: all,
       }
     })
 
@@ -291,7 +289,7 @@ const layer = Layer.effect(
           Effect.gen(function* () {
             if (result.effect === "deny") {
               return yield* new BlockedError({
-                rules: PermissionPolicy.relevant(result.policy, input.action),
+                rules: relevant(input, result.rules),
                 permission: input.action,
                 resources: input.resources,
                 reason: result.message,
@@ -321,7 +319,7 @@ const layer = Layer.effect(
       const result = yield* evaluateInput(input)
       if (result.effect !== "deny") return
       return yield* new BlockedError({
-        rules: PermissionPolicy.relevant(result.policy, input.action),
+        rules: relevant(input, result.rules),
         permission: input.action,
         resources: input.resources,
         reason: result.message,

@@ -1,7 +1,6 @@
 //! Renders tool patches as split or unified diffs.
 
 use std::cell::RefCell;
-use std::sync::Arc;
 
 use opentui::prelude::*;
 use opentui::syntax::SyntaxTheme;
@@ -101,7 +100,7 @@ pub struct Look {
 pub fn view(
     app: &App,
     theme: &Theme,
-    syntax: &Arc<SyntaxTheme>,
+    syntax: &SyntaxTheme,
     patch: &str,
     view: DiffView,
     filetype: Option<&str>,
@@ -116,7 +115,7 @@ pub fn view(
 pub fn view_painted(
     app: &App,
     theme: &Theme,
-    syntax: &Arc<SyntaxTheme>,
+    syntax: &SyntaxTheme,
     patch: &str,
     view: DiffView,
     filetype: Option<&str>,
@@ -142,7 +141,7 @@ impl Patch {
     pub fn new(
         app: &App,
         theme: &Theme,
-        syntax: &Arc<SyntaxTheme>,
+        syntax: &SyntaxTheme,
         patch: &str,
         view: DiffView,
         filetype: Option<&str>,
@@ -173,7 +172,7 @@ impl Patch {
         &self,
         app: &App,
         theme: &Theme,
-        syntax: &Arc<SyntaxTheme>,
+        syntax: &SyntaxTheme,
         patch: &str,
         view: DiffView,
         filetype: Option<&str>,
@@ -200,7 +199,7 @@ impl Patch {
     }
 
     /// Paints the patch in `theme`, whose syntax theme is `syntax`.
-    pub fn restyle(&self, theme: &Theme, syntax: &Arc<SyntaxTheme>) {
+    pub fn restyle(&self, theme: &Theme, syntax: &SyntaxTheme) {
         let look = look(theme);
         for part in self.parts.borrow().iter() {
             match part {
@@ -321,7 +320,7 @@ pub struct Chunked {
     mounted: RefCell<Vec<Option<Diff>>>,
     gutter: std::cell::Cell<DiffGutter>,
     look: std::cell::Cell<Look>,
-    syntax: RefCell<Arc<SyntaxTheme>>,
+    syntax: RefCell<SyntaxTheme>,
 }
 
 impl Chunked {
@@ -329,7 +328,7 @@ impl Chunked {
     pub fn new(
         app: &App,
         theme: &Theme,
-        syntax: &Arc<SyntaxTheme>,
+        syntax: &SyntaxTheme,
         patch: &str,
         filetype: Option<&str>,
         gutter_padding: u32,
@@ -382,7 +381,7 @@ impl Chunked {
     }
 
     /// Paints the mounted chunks in `theme`, whose syntax theme is `syntax`, and the ones mounted from now on.
-    pub fn restyle(&self, theme: &Theme, syntax: &Arc<SyntaxTheme>) {
+    pub fn restyle(&self, theme: &Theme, syntax: &SyntaxTheme) {
         let look = look(theme);
         self.look.set(look);
         *self.syntax.borrow_mut() = syntax.clone();
@@ -452,7 +451,7 @@ impl Chunked {
 pub fn view_with(
     app: &App,
     look: &Look,
-    syntax: &Arc<SyntaxTheme>,
+    syntax: &SyntaxTheme,
     patch: &str,
     view: DiffView,
     filetype: Option<&str>,
@@ -466,7 +465,7 @@ pub fn view_with(
 fn build(
     app: &App,
     look: &Look,
-    syntax: &Arc<SyntaxTheme>,
+    syntax: &SyntaxTheme,
     patch: &str,
     view: DiffView,
     filetype: Option<&str>,
@@ -484,7 +483,7 @@ fn fill(
     column: &View,
     app: &App,
     look: &Look,
-    syntax: &Arc<SyntaxTheme>,
+    syntax: &SyntaxTheme,
     patch: &str,
     view: DiffView,
     filetype: Option<&str>,

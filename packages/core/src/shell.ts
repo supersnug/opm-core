@@ -679,7 +679,7 @@ const layer = () =>
       const fs = yield* FSUtil.Service
       const shell = yield* ShellSelect.Service
       const environment = yield* Environment.Service
-      const currentWorkingDirectory = yield* Environment.workingDirectoryResolver
+      const workingDirectory = yield* Environment.workingDirectory
       const hooks = yield* PluginHooks.Service
       const environments = yield* SessionEnvironment.Service
       const config = yield* Config.Service
@@ -690,7 +690,7 @@ const layer = () =>
       const commands = new Map<Shell.ID, Spawned>()
       const exitOrder: Shell.ID[] = []
       // Take local commands back before returning the service so session restart recovery sees them.
-      const runs = environment.local && PersistentPty.available ? yield* daemon.at(location) : undefined
+      const runs = environment.hostsServer && PersistentPty.available ? yield* daemon.at(location) : undefined
 
       const outputDir = path.join(global.data, DIRECTORY, location.project.id)
       const { unlink, stat } = yield* Effect.promise(() => import("fs/promises"))
@@ -964,11 +964,10 @@ const layer = () =>
         before?: (input: ShellCreateBefore) => Effect.Effect<void, E, R>,
       ) {
         const sessionID = input.metadata?.sessionID
-        const workingDirectory = yield* currentWorkingDirectory
-        const target = input.environment ?? workingDirectory.environment
+        const target = input.environment ?? environment
         // A command anywhere else takes none of this server's variables, keeps its cwd as given and is spawned through
         // its environment.
-        const baseEnv = target.local
+        const baseEnv = target.hostsServer
           ? ((Schema.is(SessionSchema.ID)(sessionID) ? yield* environments.get(sessionID) : undefined) ?? process.env)
           : undefined
         // An environment that names its shell runs every command under it, and the command is parsed as that shell.
@@ -987,7 +986,7 @@ const layer = () =>
         yield* hooks.trigger("shell", "create.before", invocation)
         if (before) yield* before(invocation)
         // Absolute for the server's own commands, so the command reports the same cwd wherever it runs.
-        if (target.local) invocation.cwd = path.resolve(workingDirectory.absolute, invocation.cwd)
+        if (target.hostsServer) invocation.cwd = path.resolve(workingDirectory.absolute, invocation.cwd)
 
         // Created per command: the directory can be removed while the Location stays open.
         yield* fs
@@ -1010,7 +1009,7 @@ const layer = () =>
         }
         yield* annotate(info)
 
-        if (runs && target.local) {
+        if (runs && target.hostsServer) {
           const created = yield* runs
             .create({
               info,

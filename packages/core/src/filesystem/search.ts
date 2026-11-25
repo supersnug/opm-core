@@ -29,7 +29,7 @@ function emptyIndex() {
   return { files: new Map<string, Prepared>(), directories: new Map<string, Prepared>() }
 }
 
-function search(index: ReturnType<typeof emptyIndex>, input: FileSystem.FindInput, sep: string) {
+function search(index: ReturnType<typeof emptyIndex>, input: FileSystem.FindInput) {
   const items =
     input.type === "file"
       ? Array.from(index.files.values())
@@ -42,7 +42,7 @@ function search(index: ReturnType<typeof emptyIndex>, input: FileSystem.FindInpu
   fuzzysort.cleanup()
   return result.map((item) => {
     const relative = item.target
-    const type = relative.endsWith(sep) ? ("directory" as const) : ("file" as const)
+    const type = relative.endsWith(path.sep) ? ("directory" as const) : ("file" as const)
     return FileSystem.Entry.make({
       path: RelativePath.make(relative),
       type,
@@ -58,8 +58,7 @@ const ripgrepLayer = Layer.effect(
     const ripgrep = yield* Ripgrep.Service
     const scope = yield* Scope.Scope
     const clock = yield* Clock.Clock
-    const sep = (environment.path ?? path).sep
-    const home = environment.local && Protected.isHome(location.directory)
+    const home = Protected.isHome(location.directory)
     let index = emptyIndex()
     let initialized = false
     let settledAt = Number.NEGATIVE_INFINITY
@@ -80,7 +79,7 @@ const ripgrepLayer = Layer.effect(
             next.files.set(entry.path, previous.files.get(entry.path) ?? fuzzysort.prepare(entry.path))
             const parts = entry.path.split("/")
             parts.slice(0, -1).forEach((_, offset) => {
-              const directory = parts.slice(0, offset + 1).join("/") + sep
+              const directory = parts.slice(0, offset + 1).join("/") + path.sep
               if (!next.directories.has(directory))
                 next.directories.set(directory, previous.directories.get(directory) ?? fuzzysort.prepare(directory))
             })
@@ -111,7 +110,7 @@ const ripgrepLayer = Layer.effect(
       find: (input) =>
         Effect.gen(function* () {
           yield* refresh
-          return search(index, input, sep)
+          return search(index, input)
         }),
     })
   }),
@@ -232,7 +231,7 @@ const layer = (options?: Options) =>
       const environment = yield* Environment.Service
       // fff indexes a directory on the server's own disk in-process, so only the server's own environment can use it.
       // Ripgrep routes through the Location environment spawner.
-      if (!environment.local) return ripgrepLayer
+      if (!environment.hostsServer) return ripgrepLayer
       if (options?.fff === false || (options?.fff === undefined && process.platform === "win32") || !Fff.available())
         return ripgrepLayer
       // Non-VCS locations can contain many repositories, so avoid eagerly content-indexing the entire aggregate tree.

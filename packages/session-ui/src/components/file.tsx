@@ -649,8 +649,6 @@ function useViewerRender<I extends RenderTarget, O>(config: ViewerRenderConfig<I
 }
 
 function preserve(viewer: Viewer) {
-  if (!viewer.container.firstElementChild) return () => {}
-
   const root = scrollParent(viewer.wrapper)
 
   if (!root) return () => {}

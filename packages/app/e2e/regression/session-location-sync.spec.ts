@@ -117,10 +117,10 @@ test("replaces the composer when the location is not found and recovers by movin
 
   const connection = await transport.waitForConnection()
   await page.getByRole("button", { name: "Choose worktree", exact: true }).click()
-  const worktree = page.getByRole("option", { name: `existing-worktree ${destination}`, exact: true })
+  const worktree = page.getByRole("menuitem", { name: "existing-worktree", exact: true })
   await expect(worktree).toBeVisible()
 
-  // Reconnecting checks the folder again without remounting the missing view, so the open worktree dialog survives.
+  // Reconnecting checks the folder again without remounting the missing view, so the open menu survives.
   const rechecked = page.waitForResponse(
     (response) =>
       new URL(response.url()).searchParams.get("location[directory]") === directory && response.status() === 404,
@@ -131,7 +131,7 @@ test("replaces the composer when the location is not found and recovers by movin
   await rechecked
   expect(requests).toBe(2)
   await expect(worktree).toBeVisible()
-  // The open dialog hides the page from role locators.
+  // The open menu hides the page from role locators.
   await expect(page.getByText("Session location unavailable", { exact: true })).toBeVisible()
 
   await worktree.click()

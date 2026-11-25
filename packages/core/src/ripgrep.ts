@@ -127,15 +127,9 @@ const layer = Layer.effect(
     }) => {
       const program = Effect.scoped(
         Effect.gen(function* () {
-          const command = input.environment.local
-            ? yield* binary.filepath
-            : input.environment.rg
-              ? yield* input.environment.rg.pipe(
-                  Effect.mapError((cause) => failure(`Unable to resolve ripgrep on ${input.environment.id}`, cause)),
-                )
-              : yield* failure(`Search is not available on ${input.environment.id} yet.`)
+          // Hosted environments will resolve rg through their driver image; the spawner is the execution seam.
           const handle = yield* input.environment.spawner.spawn(
-            ChildProcess.make(command, input.args, { cwd: input.cwd, extendEnv: true, stdin: "ignore" }),
+            ChildProcess.make(yield* binary.filepath, input.args, { cwd: input.cwd, extendEnv: true, stdin: "ignore" }),
           )
           const stderrFiber = yield* collectStream(handle.stderr, ERROR_BYTES).pipe(
             Effect.map((output) => output.buffer.toString("utf8")),

@@ -53,11 +53,8 @@ export const Plugin = {
                   save: [skill.id],
                   ...Permission.invocation(context),
                 })
-                const { directory, output: content } = yield* Skill.prepare(
-                  fs,
-                  { ...skill, content: yield* skills.content(skill.id) },
-                  yield* skills.files(skill.id),
-                )
+                const files = yield* skills.files(skill.id)
+                const { directory, output: content } = yield* Skill.prepare(fs, skill, files)
                 return {
                   output: { directory, content },
                   content,

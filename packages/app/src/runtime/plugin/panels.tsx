@@ -78,7 +78,6 @@ const SidebarState = Persistence.struct({
     Schema.isBetween({ minimum: SESSION_REVIEW_V2_SIDEBAR_WIDTH_MIN, maximum: SESSION_REVIEW_V2_SIDEBAR_WIDTH_MAX }),
   ),
   expandMode: Schema.Literals(["expand", "collapse"]),
-  sidebarSide: Schema.Literals(["start", "end"]),
 })
 
 /**
@@ -90,7 +89,6 @@ export function createPanelSidebar(): PanelSidebar {
     sidebarOpened: true,
     sidebarWidth: SESSION_REVIEW_V2_SIDEBAR_WIDTH_DEFAULT,
     expandMode: "collapse",
-    sidebarSide: "start",
   })
 
   const sidebar: PanelSidebar = {
@@ -103,8 +101,6 @@ export function createPanelSidebar(): PanelSidebar {
         Math.min(SESSION_REVIEW_V2_SIDEBAR_WIDTH_MAX, Math.max(SESSION_REVIEW_V2_SIDEBAR_WIDTH_MIN, width)),
       ),
     toggle: () => setStore("sidebarOpened", (opened) => !opened),
-    side: () => store.sidebarSide,
-    move: (side) => setStore("sidebarSide", side),
   }
 
   onCleanup(usePluginAttachment().sidebar(sidebar))
