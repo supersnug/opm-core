@@ -1,3 +1,0 @@
-#!/bin/sh
-# URL-opener sink for the C.5 and C.6 scenarios: opens nothing.
-exit 0

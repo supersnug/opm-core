@@ -43,8 +43,9 @@ For web development, run the backend and app in separate terminals. Other interf
 bun dev serve --port 4096
 bun run dev:web
 bun run dev:desktop
-bun run dev:site
 ```
+
+Run `bun run generate:config-schemas` from the repository root to write the OpenCode and CLI configuration schemas to `dist/schemas/`.
 
 ### Packages
 

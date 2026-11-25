@@ -77,7 +77,7 @@ export default {
     headers.set("Last-Modified", object.uploaded.toUTCString())
     headers.set("Accept-Ranges", "bytes")
     if (!headers.has("Content-Type")) headers.set("Content-Type", "application/octet-stream")
-    // The site's media never changes in place: a changed file gets a new dated folder (services/site/MEDIA.md).
+    // The site's media never changes in place: a changed file gets a new dated folder.
     if (!headers.has("Cache-Control"))
       headers.set("Cache-Control", key.startsWith("site/") ? "public, max-age=31536000, immutable" : "public, max-age=3600")
 

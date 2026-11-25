@@ -13,8 +13,8 @@
     "dev:vite:live": "sh -c 'OPENCODE_TUI_CHANNEL=dev OPENCODE_PASSWORD=\"$(opencode service get password)\" exec bun run dev:vite \"$@\" --server \"$(opencode service status)\"' --",
     "dev:desktop": "bun --cwd packages/desktop dev",
     "dev:web": "bun --cwd packages/app dev",
-    "dev:site": "bun run --cwd services/site dev",
-    "lint": "oxlint && ast-grep scan -c script/ast-grep/gui-plugins/sgconfig.yml && ast-grep scan --rule script/ast-grep/dialog-size.yml packages && bun script/sdk-docs.ts && bun script/check-greys.ts",
+    "generate:config-schemas": "bun packages/schema/script/config-schema.ts dist/schemas/config.json && bun --cwd packages/cli script/schema.ts ../../dist/schemas/cli.json",
+    "lint": "oxlint && ast-grep scan -c script/ast-grep/gui-plugins/sgconfig.yml && ast-grep scan --rule script/ast-grep/dialog-size.yml packages && bun script/sdk-docs.ts",
     "lint:changed": "bun script/lint-changed.ts",
     "lint:effect-patterns": "ast-grep scan -c script/ast-grep/sgconfig.yml packages/util/src packages/core/src packages/server/src packages/protocol/src packages/cli/src",
     "lint:effect-simplifications": "ast-grep scan -c script/ast-grep/effect-simplifications/sgconfig.yml --off=unused-suppression packages",
@@ -23,7 +23,6 @@
     "typecheck": "bun turbo typecheck --concurrency=3",
     "typecheck:tsc": "bun turbo typecheck:tsc --concurrency=3",
     "check": "bun run lint && bun run typecheck",
-    "typecheck:profile": "bun script/profile-typecheck.ts",
     "typecheck:profile:packages": "bun script/profile-typecheck-packages.ts",
     "pack": "bun run script/pack.ts",
     "upgrade-opentui": "bun run script/upgrade-opentui.ts",
@@ -37,8 +36,7 @@
     "packages": [
       "packages/*",
       "packages/plugins/*",
-      "services/*",
-      "packages/data/*"
+      "services/*"
     ],
     "catalog": {
       "@effect/opentelemetry": "4.1.0",
